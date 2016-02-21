@@ -8,15 +8,15 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 10
+#define N 20
 #define h ((double) Dx / N)
-#define Nx ((int) (Dx / h) + 1)
-#define Ny ((int) (Dy / h) + 1)
-#define Rit 10000
+#define Nx ((int) (Dx / h))
+#define Ny ((int) (Dy / h))
+#define Rit 1000
 
 // tiling
-#define r1 4
-#define r2 4
+#define r1 10
+#define r2 10
 
 using namespace std;
 
@@ -103,6 +103,8 @@ void solveSimpleTiling(double** u) {
 
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
+
+    cout << "Nx: " << Nx << ", Ny: " << Ny << endl;
 
     double runtime = omp_get_wtime();
 
