@@ -12,11 +12,11 @@
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 1000
+#define Rit 10000
 
 // tiling
-#define r1 2
-#define r2 2
+#define r1 4
+#define r2 4
 
 using namespace std;
 
@@ -83,11 +83,9 @@ void solveSimple(double** u) {
 }
 
 void tile(double** u, int ig, int jg) {
-    for (int i = ig * r1; i < min((ig + 1) * r1, Nx - 1); ++i) {
-        for (int j = jg * r2; j < min((jg + 1) * r2, Ny - 1); ++j) {
-            if(i != 0 && j != 0) {
-                seidel(u, i, j);
-            }
+    for (int i = 1 + ig * r1; i < min((ig + 1) * r1 + 1, Nx - 1); ++i) {
+        for (int j = 1 + jg * r2; j < min((jg + 1) * r2 + 1, Ny - 1); ++j) {
+            seidel(u, i, j);
         }
     }
 }
@@ -95,12 +93,12 @@ void tile(double** u, int ig, int jg) {
 void solveSimpleTiling(double** u) {
     int Q1 = (int) ceil(((double) Nx / r1));
     int Q2 = (int) ceil(((double) Ny / r2));
-    cout << "Nx: " << Nx << " Ny: " << Ny << endl;
-    cout << "Q1: " << Q1 << " Q2: " << Q2 << endl;
-    for (int ig = 0; ig < Q1; ++ig) {
-        cout << "ig: " << ig * r1 << ":" << (ig + 1) * r1 << endl;
-        for (int jg = 0; jg < Q2; ++jg) {
-            tile(u, ig, jg);
+
+    for (int it = 0; it < Rit; ++it) {
+        for (int ig = 0; ig < Q1; ++ig) {
+            for (int jg = 0; jg < Q2; ++jg) {
+                tile(u, ig, jg);
+            }
         }
     }
 }
