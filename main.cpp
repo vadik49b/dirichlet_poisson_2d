@@ -33,10 +33,8 @@ void logSolutionError(double **u) {
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             double err = abs(u[i][j] - exactValue(i, j));
-            cout << err << " ";
             maxError = max(maxError, err);
         }
-        cout << endl;
     }
     cout << "\nsolution max error: " << maxError << endl;
 }
