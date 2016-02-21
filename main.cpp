@@ -12,12 +12,16 @@
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 100
+#define Rit 1000
+
+// tiling
+#define r1 2
+#define r2 2
 
 using namespace std;
 
 double f(int i, int j) {
-    return 2. * (pow(i * h, 2) + pow(j * h, 2));
+    return 2 * (pow(i * h, 2) + pow(j * h, 2));
 }
 
 double exactValue(int i, int j) {
@@ -29,8 +33,8 @@ void logSolutionError(double **u) {
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             double err = abs(u[i][j] - exactValue(i, j));
-            maxError = max(maxError, err);
             cout << err << " ";
+            maxError = max(maxError, err);
         }
         cout << endl;
     }
@@ -64,16 +68,42 @@ void logMatrix(double** m) {
     }
 }
 
-void solveSimpleSeidel(double** u) {
+void seidel(double** u, int i, int j) {
+    u[i][j] = 0.25 * (u[i+1][j] + u[i-1][j] + u[i][j+1] + u[i][j-1] - pow(h, 2) * f(i, j));
+}
+
+void solveSimple(double** u) {
     for (int it = 0; it < Rit; ++it) {
         for (int i = 1; i < Nx - 1; ++i) {
             for (int j = 1; j < Ny - 1; ++j) {
-                u[i][j] = -0.25 * (pow(h, 2) * f(i, j) - u[i+1][j] - u[i-1][j] - u[i][j+1] - u[i][j-1]);
+                seidel(u, i, j);
             }
         }
     }
 }
 
+void tile(double** u, int ig, int jg) {
+    for (int i = ig * r1; i < min((ig + 1) * r1, Nx - 1); ++i) {
+        for (int j = jg * r2; j < min((jg + 1) * r2, Ny - 1); ++j) {
+            if(i != 0 && j != 0) {
+                seidel(u, i, j);
+            }
+        }
+    }
+}
+
+void solveSimpleTiling(double** u) {
+    int Q1 = (int) ceil(((double) Nx / r1));
+    int Q2 = (int) ceil(((double) Ny / r2));
+    cout << "Nx: " << Nx << " Ny: " << Ny << endl;
+    cout << "Q1: " << Q1 << " Q2: " << Q2 << endl;
+    for (int ig = 0; ig < Q1; ++ig) {
+        cout << "ig: " << ig * r1 << ":" << (ig + 1) * r1 << endl;
+        for (int jg = 0; jg < Q2; ++jg) {
+            tile(u, ig, jg);
+        }
+    }
+}
 
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
@@ -82,12 +112,8 @@ int main() {
 
     double** u = allocateAndFillMatrix();
 
-    cout << "initial:" << endl;
-//    logMatrix(u);
-    solveSimpleSeidel(u);
-    cout << "solution:" << endl;
-//    logMatrix(u);
-    cout << "solution error:" << endl;
+//    solveSimple(u);
+    solveSimpleTiling(u);
     logSolutionError(u);
 
     cout << "\nruntime was: " << omp_get_wtime() - runtime << "\n";
