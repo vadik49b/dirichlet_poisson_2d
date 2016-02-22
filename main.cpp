@@ -8,15 +8,15 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 50
+#define N 5000
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 10000
+#define Rit 1
 
 // tiling
-#define r1 10
-#define r2 10
+#define r1 1000
+#define r2 500
 
 using namespace std;
 
@@ -30,13 +30,17 @@ double exactValue(int i, int j) {
 
 void logSolutionError(double **u) {
     double maxError = u[0][0];
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            double err = abs(u[i][j] - exactValue(i, j));
-            maxError = max(maxError, err);
+    #pragma omp parallel
+    {
+        #pragma omp for
+        for (int i = 0; i < Nx; ++i) {
+            for (int j = 0; j < Ny; ++j) {
+                double err = abs(u[i][j] - exactValue(i, j));
+                maxError = max(maxError, err);
+            }
         }
     }
-    cout << "solution max error: " << maxError << endl;
+    cout << "solution max error: " << maxError << "\n========\n";
 }
 
 double** allocateAndFillMatrix() {
@@ -57,15 +61,6 @@ double** allocateAndFillMatrix() {
 }
 
 
-void logMatrix(double** m) {
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            cout << m[i][j] << " ";
-        }
-        cout << endl;
-    }
-}
-
 void seidel(double** u, int i, int j) {
     u[i][j] = 0.25 * (u[i+1][j] + u[i-1][j] + u[i][j+1] + u[i][j-1] - pow(h, 2) * f(i, j));
 }
@@ -83,8 +78,8 @@ void solveSimple(double** u) {
 void solveSimpleParallel(double** u) {
     #pragma omp parallel
     {
-        #pragma omp for
         for (int it = 0; it < Rit; ++it) {
+            #pragma omp for
             for (int i = 1; i < Nx - 1; ++i) {
                 for (int j = 1; j < Ny - 1; ++j) {
                     seidel(u, i, j);
@@ -119,36 +114,36 @@ void solveSimpleTiling(double** u) {
     }
 }
 
-void showRuntime(double &runtime) {
+void showRuntime(double runtime) {
     double currentTime = omp_get_wtime();
-    cout << "runtime was: " << currentTime - runtime << "\n_______________________\n";
-    runtime = currentTime;
+    cout << "runtime was: " << currentTime - runtime << endl;
 }
 
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
 
-    cout << "Nx: " << Nx << ", Ny: " << Ny << endl;
-
-    double runtime = omp_get_wtime();
+    cout << "Nx: " << Nx << ", Ny: " << Ny << "\n_______\n";
 
     cout << "simple:\n";
     double** u = allocateAndFillMatrix();
+    double runtime = omp_get_wtime();
     solveSimple(u);
-    logSolutionError(u);
     showRuntime(runtime);
+    logSolutionError(u);
 
     cout << "simple parallel:\n";
     u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
     solveSimpleParallel(u);
-    logSolutionError(u);
     showRuntime(runtime);
+    logSolutionError(u);
 
     cout << "simple parallel tiling:\n";
     u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
     solveSimpleTiling(u);
-    logSolutionError(u);
     showRuntime(runtime);
+    logSolutionError(u);
 
     return 0;
 }
