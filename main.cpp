@@ -10,8 +10,8 @@
 #define Dy 2
 #define N 20
 #define h ((double) Dx / N)
-#define Nx ((int) (Dx / h))
-#define Ny ((int) (Dy / h))
+#define Nx ((int) (Dx / h) + 1)
+#define Ny ((int) (Dy / h) + 1)
 #define Rit 1000
 
 // tiling
@@ -110,8 +110,8 @@ int main() {
 
     double** u = allocateAndFillMatrix();
 
-//    solveSimple(u);
-    solveSimpleTiling(u);
+    solveSimple(u);
+//    solveSimpleTiling(u);
     logSolutionError(u);
 
     cout << "\nruntime was: " << omp_get_wtime() - runtime << "\n";
