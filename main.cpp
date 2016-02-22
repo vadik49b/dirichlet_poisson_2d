@@ -8,15 +8,15 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 20
+#define N 50
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 1000
+#define Rit 10000
 
 // tiling
-#define r1 10
-#define r2 10
+#define r1 20
+#define r2 20
 
 using namespace std;
 
@@ -80,7 +80,23 @@ void solveSimple(double** u) {
     }
 }
 
+void solveSimpleParallel(double** u) {
+    #pragma omp parallel
+    {
+        #pragma omp for
+        for (int it = 0; it < Rit; ++it) {
+            for (int i = 1; i < Nx - 1; ++i) {
+                for (int j = 1; j < Ny - 1; ++j) {
+                    seidel(u, i, j);
+                }
+            }
+        }
+    }
+
+}
+
 void tile(double** u, int ig, int jg) {
+    #pragma omp for
     for (int i = 1 + ig * r1; i < min((ig + 1) * r1 + 1, Nx - 1); ++i) {
         for (int j = 1 + jg * r2; j < min((jg + 1) * r2 + 1, Ny - 1); ++j) {
             seidel(u, i, j);
@@ -91,11 +107,13 @@ void tile(double** u, int ig, int jg) {
 void solveSimpleTiling(double** u) {
     int Q1 = (int) ceil(((double) Nx / r1));
     int Q2 = (int) ceil(((double) Ny / r2));
-
-    for (int it = 0; it < Rit; ++it) {
-        for (int ig = 0; ig < Q1; ++ig) {
-            for (int jg = 0; jg < Q2; ++jg) {
-                tile(u, ig, jg);
+    #pragma omp parallel
+    {
+        for (int it = 0; it < Rit; ++it) {
+            for (int ig = 0; ig < Q1; ++ig) {
+                for (int jg = 0; jg < Q2; ++jg) {
+                    tile(u, ig, jg);
+                }
             }
         }
     }
@@ -110,8 +128,9 @@ int main() {
 
     double** u = allocateAndFillMatrix();
 
-    solveSimple(u);
-//    solveSimpleTiling(u);
+//    solveSimple(u);
+//    solveSimpleParallel(u);
+    solveSimpleTiling(u);
     logSolutionError(u);
 
     cout << "\nruntime was: " << omp_get_wtime() - runtime << "\n";
