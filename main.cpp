@@ -36,7 +36,7 @@ void logSolutionError(double **u) {
             maxError = max(maxError, err);
         }
     }
-    cout << "\nsolution max error: " << maxError << endl;
+    cout << "solution max error: " << maxError << endl;
 }
 
 double** allocateAndFillMatrix() {
@@ -119,6 +119,12 @@ void solveSimpleTiling(double** u) {
     }
 }
 
+void showRuntime(double &runtime) {
+    double currentTime = omp_get_wtime();
+    cout << "runtime was: " << currentTime - runtime << "\n_______________________\n";
+    runtime = currentTime;
+}
+
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
 
@@ -126,14 +132,23 @@ int main() {
 
     double runtime = omp_get_wtime();
 
+    cout << "simple:\n";
     double** u = allocateAndFillMatrix();
+    solveSimple(u);
+    logSolutionError(u);
+    showRuntime(runtime);
 
-//    solveSimple(u);
-//    solveSimpleParallel(u);
+    cout << "simple parallel:\n";
+    u = allocateAndFillMatrix();
+    solveSimpleParallel(u);
+    logSolutionError(u);
+    showRuntime(runtime);
+
+    cout << "simple parallel tiling:\n";
+    u = allocateAndFillMatrix();
     solveSimpleTiling(u);
     logSolutionError(u);
-
-    cout << "\nruntime was: " << omp_get_wtime() - runtime << "\n";
+    showRuntime(runtime);
 
     return 0;
 }
