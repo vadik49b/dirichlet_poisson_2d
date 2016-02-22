@@ -15,8 +15,8 @@
 #define Rit 10000
 
 // tiling
-#define r1 20
-#define r2 20
+#define r1 10
+#define r2 10
 
 using namespace std;
 
