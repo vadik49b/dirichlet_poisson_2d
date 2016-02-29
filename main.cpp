@@ -8,15 +8,17 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 5000
+#define N 500
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 1
+#define Rit 300
 
 // tiling
-#define r1 1000
-#define r2 500
+#define r1 2
+#define r2 100
+#define r3 200
+#define Mover 1
 
 using namespace std;
 
@@ -30,14 +32,10 @@ double exactValue(int i, int j) {
 
 void logSolutionError(double **u) {
     double maxError = u[0][0];
-    #pragma omp parallel
-    {
-        #pragma omp for
-        for (int i = 0; i < Nx; ++i) {
-            for (int j = 0; j < Ny; ++j) {
-                double err = abs(u[i][j] - exactValue(i, j));
-                maxError = max(maxError, err);
-            }
+    for (int i = 0; i < Nx; ++i) {
+        for (int j = 0; j < Ny; ++j) {
+            double err = abs(u[i][j] - exactValue(i, j));
+            maxError = max(maxError, err);
         }
     }
     cout << "solution max error: " << maxError << "\n========\n";
@@ -91,23 +89,51 @@ void solveSimpleParallel(double** u) {
 }
 
 void tile(double** u, int ig, int jg) {
-    #pragma omp for
-    for (int i = 1 + ig * r1; i < min((ig + 1) * r1 + 1, Nx - 1); ++i) {
-        for (int j = 1 + jg * r2; j < min((jg + 1) * r2 + 1, Ny - 1); ++j) {
+    for (int i = 1 + ig * r2; i < min((ig + 1) * r2 + 1, Nx - 1); ++i) {
+        for (int j = 1 + jg * r3; j < min((jg + 1) * r3 + 1, Ny - 1); ++j) {
             seidel(u, i, j);
         }
     }
 }
 
 void solveSimpleTiling(double** u) {
-    int Q1 = (int) ceil(((double) Nx / r1));
-    int Q2 = (int) ceil(((double) Ny / r2));
+    int Q1 = (int) ceil(((double) Nx / r2));
+    int Q2 = (int) ceil(((double) Ny / r3));
     #pragma omp parallel
     {
         for (int it = 0; it < Rit; ++it) {
+            #pragma omp for
             for (int ig = 0; ig < Q1; ++ig) {
                 for (int jg = 0; jg < Q2; ++jg) {
                     tile(u, ig, jg);
+                }
+            }
+        }
+    }
+}
+
+void haloTile(double** u, int ig, int jg, int lg) {
+    for (int l = 1 + lg * r1; l < min((lg + 1) * r1 + 1, Rit - 1); ++l) {
+        for (int i = max(ig * r2 - Mover + 1, 1); i < min(Mover + (ig + 1) * r2 + 1, Nx - 1); ++i) {
+            for (int j = max(jg * r3 - Mover + 1, 1); j < min(Mover + (jg + 1) * r3 + 1, Ny - 1); ++j) {
+                seidel(u, i, j);
+            }
+        }
+    }
+}
+
+void solve3dTiling(double** u) {
+    int Q1 = (int) ceil(((double) Rit / r1));
+    int Q2 = (int) ceil(((double) Nx / r2));
+    int Q3 = (int) ceil(((double) Ny / r3));
+
+    #pragma omp parallel 
+    {
+        #pragma omp for
+        for (int lg = 0; lg < Q1; ++lg) {
+            for (int ig = 0; ig < Q2; ++ig) {
+                for (int jg = 0; jg < Q3; ++jg) {
+                    haloTile(u, ig, jg, lg);
                 }
             }
         }
@@ -122,7 +148,7 @@ void showRuntime(double runtime) {
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
 
-    cout << "Nx: " << Nx << ", Ny: " << Ny << "\n_______\n";
+    cout << "Nx: " << Nx << ", Ny: " << Ny << ", h: " << h << "\n_______\n";
 
     cout << "simple:\n";
     double** u = allocateAndFillMatrix();
@@ -142,6 +168,13 @@ int main() {
     u = allocateAndFillMatrix();
     runtime = omp_get_wtime();
     solveSimpleTiling(u);
+    showRuntime(runtime);
+    logSolutionError(u);
+
+    cout << "3d test parallel tiling:\n";
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solve3dTiling(u);
     showRuntime(runtime);
     logSolutionError(u);
 
