@@ -8,11 +8,11 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 500
+#define N 2000
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 300
+#define Rit 10
 
 // tiling
 #define r1 2
@@ -39,6 +39,16 @@ void logSolutionError(double **u) {
         }
     }
     cout << "solution max error: " << maxError << "\n========\n";
+}
+
+void logMatrix(double **u) {
+	cout << "U: " << "\n========\n";
+    for (int i = 0; i < Nx; ++i) {
+        for (int j = 0; j < Ny; ++j) {
+            cout << u[i][j] << " ";
+        }
+        cout << endl;
+    }
 }
 
 double** allocateAndFillMatrix() {
@@ -70,6 +80,7 @@ void solveSimple(double** u) {
                 seidel(u, i, j);
             }
         }
+        logSolutionError(u);
     }
 }
 
@@ -157,26 +168,26 @@ int main() {
     showRuntime(runtime);
     logSolutionError(u);
 
-    cout << "simple parallel:\n";
-    u = allocateAndFillMatrix();
-    runtime = omp_get_wtime();
-    solveSimpleParallel(u);
-    showRuntime(runtime);
-    logSolutionError(u);
+    // cout << "simple parallel:\n";
+    // u = allocateAndFillMatrix();
+    // runtime = omp_get_wtime();
+    // solveSimpleParallel(u);
+    // showRuntime(runtime);
+    // logSolutionError(u);
 
-    cout << "simple parallel tiling:\n";
-    u = allocateAndFillMatrix();
-    runtime = omp_get_wtime();
-    solveSimpleTiling(u);
-    showRuntime(runtime);
-    logSolutionError(u);
+    // cout << "simple parallel tiling:\n";
+    // u = allocateAndFillMatrix();
+    // runtime = omp_get_wtime();
+    // solveSimpleTiling(u);
+    // showRuntime(runtime);
+    // logSolutionError(u);
 
-    cout << "3d test parallel tiling:\n";
-    u = allocateAndFillMatrix();
-    runtime = omp_get_wtime();
-    solve3dTiling(u);
-    showRuntime(runtime);
-    logSolutionError(u);
+    // cout << "3d test parallel tiling:\n";
+    // u = allocateAndFillMatrix();
+    // runtime = omp_get_wtime();
+    // solve3dTiling(u);
+    // showRuntime(runtime);
+    // logSolutionError(u);
 
     return 0;
 }
