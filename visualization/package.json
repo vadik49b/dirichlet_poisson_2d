@@ -1,0 +1,11 @@
+{
+  "name": "visualization",
+  "version": "1.0.0",
+  "description": "",
+  "main": "vis.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "Vadim Boltach",
+  "license": "ISC"
+}

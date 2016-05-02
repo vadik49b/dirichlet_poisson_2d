@@ -13,7 +13,7 @@ using namespace std;
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 100
+#define N 50
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
@@ -21,14 +21,15 @@ using namespace std;
 
 // tiling
 #define r1 2
-#define r2 40
-#define r3 40
+#define r2 10
+#define r3 10
 #define Mover 1
 
 struct LOG_TICK {
 	double time;
 	int i;
 	int j;
+    int threadId;
 };
 
 mutex logMutex;
@@ -90,6 +91,7 @@ void seidel(double** u, int i, int j) {
 	LOG_TICK tick;
 	tick.i = i;
 	tick.j = j;
+    tick.threadId = omp_get_thread_num();
 	LOG_BUF.push_back(tick);
 	logMutex.unlock();
 
@@ -192,17 +194,17 @@ int main() {
     // logSolutionError(u);
 
     cout << "simple parallel:\n";
-    u = allocateAndFillMatrix();
-    runtime = omp_get_wtime();
-    solveSimpleParallel(u);
-    showRuntime(runtime);
-    // logSolutionError(u);
-
-    // cout << "simple parallel tiling:\n";
     // u = allocateAndFillMatrix();
     // runtime = omp_get_wtime();
-    // solveSimpleTiling(u);
+    // solveSimpleParallel(u);
     // showRuntime(runtime);
+    // logSolutionError(u);
+
+    cout << "simple parallel tiling:\n";
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solveSimpleTiling(u);
+    showRuntime(runtime);
     // logSolutionError(u);
     
     // cout << "3d test parallel tiling:\n";
@@ -214,7 +216,7 @@ int main() {
 
     ofstream logfile("log.txt");
 	for (vector<LOG_TICK>::iterator it = LOG_BUF.begin() ; it != LOG_BUF.end(); ++it) {
-		logfile << ' ' << (*it).i << ' ' << (*it).j << endl;
+		logfile << it->threadId << ' ' << it->i << ' ' << it->j << endl;
 	}
 	logfile.close();
 
