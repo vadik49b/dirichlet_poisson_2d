@@ -1,6 +1,11 @@
 #include <iostream>
+#include <fstream>
 #include <omp.h>
 #include <cmath>
+#include <stdio.h>
+#include <vector>
+#include <mutex>
+using namespace std;
 
 // config
 #define OMP_THREADS_NUM 4
@@ -8,19 +13,28 @@
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 2000
+#define N 100
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 10
+#define Rit 6
 
 // tiling
 #define r1 2
-#define r2 100
-#define r3 200
+#define r2 40
+#define r3 40
 #define Mover 1
 
-using namespace std;
+struct LOG_TICK {
+	double time;
+	int i;
+	int j;
+};
+
+mutex logMutex;
+vector <LOG_TICK> LOG_BUF;
+
+
 
 double f(int i, int j) {
     return 2 * (pow(i * h, 2) + pow(j * h, 2));
@@ -70,6 +84,15 @@ double** allocateAndFillMatrix() {
 
 
 void seidel(double** u, int i, int j) {
+
+    // logging
+	logMutex.lock();
+	LOG_TICK tick;
+	tick.i = i;
+	tick.j = j;
+	LOG_BUF.push_back(tick);
+	logMutex.unlock();
+
     u[i][j] = 0.25 * (u[i+1][j] + u[i-1][j] + u[i][j+1] + u[i][j-1] - pow(h, 2) * f(i, j));
 }
 
@@ -80,7 +103,6 @@ void solveSimple(double** u) {
                 seidel(u, i, j);
             }
         }
-        logSolutionError(u);
     }
 }
 
@@ -124,9 +146,9 @@ void solveSimpleTiling(double** u) {
 }
 
 void haloTile(double** u, int ig, int jg, int lg) {
-    for (int l = 1 + lg * r1; l < min((lg + 1) * r1 + 1, Rit - 1); ++l) {
-        for (int i = max(ig * r2 - Mover + 1, 1); i < min(Mover + (ig + 1) * r2 + 1, Nx - 1); ++i) {
-            for (int j = max(jg * r3 - Mover + 1, 1); j < min(Mover + (jg + 1) * r3 + 1, Ny - 1); ++j) {
+    for (int l = 1 + lg * r1; l < min((lg + 1) * r1 + 1, Rit + 1); ++l) {
+        for (int i = max(l - (lg + 1) * r1 + ig * r2 + 1, 1); i < min(-l + (lg + 1) * r1 + (ig + 1) * r2 + 1, Nx - 1); ++i) {
+            for (int j = max(l - (lg + 1) * r1 + jg * r3 + 1, 1); j < min(-l + (lg + 1) * r1 + (jg + 1) * r3 + 1, Ny - 1); ++j) {
                 seidel(u, i, j);
             }
         }
@@ -138,16 +160,17 @@ void solve3dTiling(double** u) {
     int Q2 = (int) ceil(((double) Nx / r2));
     int Q3 = (int) ceil(((double) Ny / r3));
 
-    #pragma omp parallel 
+    #pragma omp parallel
     {
-        #pragma omp for
-        for (int lg = 0; lg < Q1; ++lg) {
-            for (int ig = 0; ig < Q2; ++ig) {
-                for (int jg = 0; jg < Q3; ++jg) {
-                    haloTile(u, ig, jg, lg);
-                }
-            }
-        }
+    	for (int lg = 0; lg < Q1; ++lg) {
+    		#pragma omp for
+	        for (int ig = 0; ig < Q2; ++ig) {
+	            for (int jg = 0; jg < Q3; ++jg) {
+	            	// printf("g %d %d %d\n", lg, ig, jg);
+	                haloTile(u, ig, jg, lg);
+	            }
+	        }
+    	}
     }
 }
 
@@ -159,20 +182,20 @@ void showRuntime(double runtime) {
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
 
-    cout << "Nx: " << Nx << ", Ny: " << Ny << ", h: " << h << "\n_______\n";
+    cout << "Nx: " << Nx << ", Ny: " << Ny << ", h: " << h << ", Rit: " << Rit << "\n_______\n";
 
-    cout << "simple:\n";
+    // cout << "simple:\n";
     double** u = allocateAndFillMatrix();
     double runtime = omp_get_wtime();
-    solveSimple(u);
-    showRuntime(runtime);
-    logSolutionError(u);
-
-    // cout << "simple parallel:\n";
-    // u = allocateAndFillMatrix();
-    // runtime = omp_get_wtime();
-    // solveSimpleParallel(u);
+    // solveSimple(u);
     // showRuntime(runtime);
+    // logSolutionError(u);
+
+    cout << "simple parallel:\n";
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solveSimpleParallel(u);
+    showRuntime(runtime);
     // logSolutionError(u);
 
     // cout << "simple parallel tiling:\n";
@@ -181,13 +204,19 @@ int main() {
     // solveSimpleTiling(u);
     // showRuntime(runtime);
     // logSolutionError(u);
-
+    
     // cout << "3d test parallel tiling:\n";
     // u = allocateAndFillMatrix();
     // runtime = omp_get_wtime();
     // solve3dTiling(u);
-    // showRuntime(runtime);
+    // showRuntime(runtime);		
     // logSolutionError(u);
+
+    ofstream logfile("log.txt");
+	for (vector<LOG_TICK>::iterator it = LOG_BUF.begin() ; it != LOG_BUF.end(); ++it) {
+		logfile << ' ' << (*it).i << ' ' << (*it).j << endl;
+	}
+	logfile.close();
 
     return 0;
 }
