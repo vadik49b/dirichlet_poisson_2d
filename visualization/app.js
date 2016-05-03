@@ -1,10 +1,10 @@
 'use strict';
 
-const Nx = 51;
-const Ny = 101;
-const PIXEL_SIZE = 10;
-const BLINK_TIME = 100;
-const FRAME_TIME = 50;
+const Nx = 101;
+const Ny = 201;
+const PIXEL_SIZE = 5;
+const BLINK_TIME = 50;
+const FRAME_TIME = 5;
 const colors = ['red', 'blue', 'green', 'black']
 
 const initCanvas = (width, height) => {
@@ -29,7 +29,10 @@ const blink = (threadId, i, j) => {
 };
 
 const main = (content) => {
-  const lines = content.split('\n');
+  const lines = content.trim().split('\n').sort((a, b) => (
+    a.split(' ')[3] - b.split(' ')[3]
+  ));
+  console.log('lines sorted...', 'emulating...');
   let i = 0;
   const thread = () => {
     const timer = setInterval(() => {
@@ -53,7 +56,7 @@ input.addEventListener('change', (e) => {
 	if (file.type.match(textType)) {
 		const reader = new FileReader();
 		reader.onload = function(e) {
-      console.log('File readed');
+      console.log('file reading done...');
 			main(reader.result);
 		}
 		reader.readAsText(file);

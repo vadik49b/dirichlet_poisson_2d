@@ -4,7 +4,7 @@
 #include <cmath>
 #include <stdio.h>
 #include <vector>
-#include <mutex>
+#include <time.h>
 using namespace std;
 
 // config
@@ -13,16 +13,16 @@ using namespace std;
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 50
+#define N 100
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 6
+#define Rit 5
 
 // tiling
-#define r1 2
-#define r2 10
-#define r3 10
+#define r1 5
+#define r2 20
+#define r3 30
 #define Mover 1
 
 struct LOG_TICK {
@@ -33,8 +33,7 @@ struct LOG_TICK {
 };
 
 mutex logMutex;
-vector <LOG_TICK> LOG_BUF;
-
+vector <LOG_TICK> LOG_BUFFERS[OMP_THREADS_NUM];
 
 
 double f(int i, int j) {
@@ -87,13 +86,12 @@ double** allocateAndFillMatrix() {
 void seidel(double** u, int i, int j) {
 
     // logging
-	logMutex.lock();
 	LOG_TICK tick;
 	tick.i = i;
 	tick.j = j;
     tick.threadId = omp_get_thread_num();
-	LOG_BUF.push_back(tick);
-	logMutex.unlock();
+    tick.time = clock();
+	LOG_BUFFERS[tick.threadId].push_back(tick);
 
     u[i][j] = 0.25 * (u[i+1][j] + u[i-1][j] + u[i][j+1] + u[i][j-1] - pow(h, 2) * f(i, j));
 }
@@ -112,6 +110,7 @@ void solveSimpleParallel(double** u) {
     #pragma omp parallel
     {
         for (int it = 0; it < Rit; ++it) {
+            // printf("it: %d(thread%d)\n", it, omp_get_thread_num());
             #pragma omp for
             for (int i = 1; i < Nx - 1; ++i) {
                 for (int j = 1; j < Ny - 1; ++j) {
@@ -162,13 +161,15 @@ void solve3dTiling(double** u) {
     int Q2 = (int) ceil(((double) Nx / r2));
     int Q3 = (int) ceil(((double) Ny / r3));
 
+    printf("tiles number: %d\n", Q1);
+
     #pragma omp parallel
     {
     	for (int lg = 0; lg < Q1; ++lg) {
+            // printf("tile: %d(thread%d)\n", lg, omp_get_thread_num());
     		#pragma omp for
 	        for (int ig = 0; ig < Q2; ++ig) {
 	            for (int jg = 0; jg < Q3; ++jg) {
-	            	// printf("g %d %d %d\n", lg, ig, jg);
 	                haloTile(u, ig, jg, lg);
 	            }
 	        }
@@ -183,8 +184,7 @@ void showRuntime(double runtime) {
 
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
-
-    cout << "Nx: " << Nx << ", Ny: " << Ny << ", h: " << h << ", Rit: " << Rit << "\n_______\n";
+    printf("Nx: %d, Ny: %d, h: %f, Rit: %d\n__________\n", Nx, Ny, h, Rit);
 
     // cout << "simple:\n";
     double** u = allocateAndFillMatrix();
@@ -193,7 +193,7 @@ int main() {
     // showRuntime(runtime);
     // logSolutionError(u);
 
-    cout << "simple parallel:\n";
+    // cout << "simple parallel:\n";
     // u = allocateAndFillMatrix();
     // runtime = omp_get_wtime();
     // solveSimpleParallel(u);
@@ -201,23 +201,25 @@ int main() {
     // logSolutionError(u);
 
     cout << "simple parallel tiling:\n";
-    u = allocateAndFillMatrix();
-    runtime = omp_get_wtime();
-    solveSimpleTiling(u);
-    showRuntime(runtime);
-    // logSolutionError(u);
-    
-    // cout << "3d test parallel tiling:\n";
     // u = allocateAndFillMatrix();
     // runtime = omp_get_wtime();
-    // solve3dTiling(u);
-    // showRuntime(runtime);		
+    // solveSimpleTiling(u);
+    // showRuntime(runtime);
+    // logSolutionError(u);
+    
+    cout << "3d test parallel tiling:\n";
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solve3dTiling(u);
+    showRuntime(runtime);		
     // logSolutionError(u);
 
     ofstream logfile("log.txt");
-	for (vector<LOG_TICK>::iterator it = LOG_BUF.begin() ; it != LOG_BUF.end(); ++it) {
-		logfile << it->threadId << ' ' << it->i << ' ' << it->j << endl;
-	}
+    for (int i = 0; i < OMP_THREADS_NUM; ++i) {
+        for (vector<LOG_TICK>::iterator it = LOG_BUFFERS[i].begin() ; it != LOG_BUFFERS[i].end(); ++it) {
+            logfile << it->threadId << ' ' << it->i << ' ' << it->j << ' ' << it->time << endl;
+        }
+    }
 	logfile.close();
 
     return 0;
