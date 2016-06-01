@@ -13,16 +13,16 @@ using namespace std;
 // solution globals
 #define Dx 1
 #define Dy 2
-#define N 100
+#define N 2000
 #define h ((double) Dx / N)
 #define Nx ((int) (Dx / h) + 1)
 #define Ny ((int) (Dy / h) + 1)
-#define Rit 5
+#define Rit 30
 
 // tiling
-#define r1 5
-#define r2 20
-#define r3 30
+#define r1 4
+#define r2 300
+#define r3 300
 #define Mover 1
 
 struct LOG_TICK {
@@ -123,8 +123,10 @@ void solveSimpleParallel(double** u) {
 }
 
 void tile(double** u, int ig, int jg) {
-    for (int i = 1 + ig * r2; i < min((ig + 1) * r2 + 1, Nx - 1); ++i) {
-        for (int j = 1 + jg * r3; j < min((jg + 1) * r3 + 1, Ny - 1); ++j) {
+    int maxI = min((ig + 1) * r2 + 1, Nx - 1);
+    int maxJ = min((jg + 1) * r3 + 1, Ny - 1);
+    for (int i = 1 + ig * r2; i < maxI; ++i) {
+        for (int j = 1 + jg * r3; j < maxJ; ++j) {
             seidel(u, i, j);
         }
     }
@@ -146,10 +148,13 @@ void solveSimpleTiling(double** u) {
     }
 }
 
-void haloTile(double** u, int ig, int jg, int lg) {
-    for (int l = 1 + lg * r1; l < min((lg + 1) * r1 + 1, Rit + 1); ++l) {
-        for (int i = max(l - (lg + 1) * r1 + ig * r2 + 1, 1); i < min(-l + (lg + 1) * r1 + (ig + 1) * r2 + 1, Nx - 1); ++i) {
-            for (int j = max(l - (lg + 1) * r1 + jg * r3 + 1, 1); j < min(-l + (lg + 1) * r1 + (jg + 1) * r3 + 1, Ny - 1); ++j) {
+void haloTile(double** u, int ig, int jg, int lg, int lgr, int igr, int jgr) {
+    int iterationsNumber = min(lgr + 1, Rit + 1);
+    for (int l = 1 + lg * r1; l < iterationsNumber; ++l) {
+        int maxI = min(-l + lgr + igr + 1, Nx - 1);
+        for (int i = max(l - lgr + ig * r2 + 1, 1); i < maxI; ++i) {
+            int maxJ = min(-l + lgr + jgr + 1, Ny - 1);
+            for (int j = max(l - lgr + jg * r3 + 1, 1); j < maxJ; ++j) {
                 seidel(u, i, j);
             }
         }
@@ -161,19 +166,21 @@ void solve3dTiling(double** u) {
     int Q2 = (int) ceil(((double) Nx / r2));
     int Q3 = (int) ceil(((double) Ny / r3));
 
-    printf("tiles number: %d\n", Q1);
+    // printf("iteration tiles number: %d\n", Q1);
 
-    #pragma omp parallel
-    {
-    	for (int lg = 0; lg < Q1; ++lg) {
-            // printf("tile: %d(thread%d)\n", lg, omp_get_thread_num());
-    		#pragma omp for
-	        for (int ig = 0; ig < Q2; ++ig) {
-	            for (int jg = 0; jg < Q3; ++jg) {
-	                haloTile(u, ig, jg, lg);
-	            }
-	        }
-    	}
+    for (int lg = 0; lg < Q1; ++lg) {
+        #pragma omp parallel
+        {
+            int lgr = (lg + 1) * r1;
+            #pragma omp for
+            for (int ig = 0; ig < Q2; ++ig) {
+                int igr = (ig + 1) * r2;
+                for (int jg = 0; jg < Q3; ++jg) {
+                    int jgr = (jg + 1) * r3;
+                    haloTile(u, ig, jg, lg, lgr, igr, jgr);
+                }
+            }   
+        }
     }
 }
 
@@ -184,35 +191,35 @@ void showRuntime(double runtime) {
 
 int main() {
     omp_set_num_threads(OMP_THREADS_NUM);
-    printf("Nx: %d, Ny: %d, h: %f, Rit: %d\n__________\n", Nx, Ny, h, Rit);
+    printf("Nx: %d, Ny: %d, h: %f, Rit: %d, (r1, r2, r3) = (%d, %d, %d)\n__________\n", Nx, Ny, h, Rit, r1, r2, r3);
 
-    // cout << "simple:\n";
+    cout << "simple:\n";
     double** u = allocateAndFillMatrix();
     double runtime = omp_get_wtime();
-    // solveSimple(u);
-    // showRuntime(runtime);
-    // logSolutionError(u);
+    solveSimple(u);
+    showRuntime(runtime);
+    logSolutionError(u);
 
-    // cout << "simple parallel:\n";
-    // u = allocateAndFillMatrix();
-    // runtime = omp_get_wtime();
-    // solveSimpleParallel(u);
-    // showRuntime(runtime);
-    // logSolutionError(u);
+    cout << "simple parallel:\n";
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solveSimpleParallel(u);
+    showRuntime(runtime);
+    logSolutionError(u);
 
     cout << "simple parallel tiling:\n";
-    // u = allocateAndFillMatrix();
-    // runtime = omp_get_wtime();
-    // solveSimpleTiling(u);
-    // showRuntime(runtime);
-    // logSolutionError(u);
+    u = allocateAndFillMatrix();
+    runtime = omp_get_wtime();
+    solveSimpleTiling(u);
+    showRuntime(runtime);
+    logSolutionError(u);
     
     cout << "3d test parallel tiling:\n";
     u = allocateAndFillMatrix();
     runtime = omp_get_wtime();
     solve3dTiling(u);
     showRuntime(runtime);		
-    // logSolutionError(u);
+    logSolutionError(u);
 
     ofstream logfile("log.txt");
     for (int i = 0; i < OMP_THREADS_NUM; ++i) {
